@@ -168,10 +168,7 @@ my_dog.bark()
 
 ## 🧠 Why Merror Script?
 
-- 🎓 **Learn Python differently** — forces you to recognize keywords by shape, not habit
-- 🧩 **Coding puzzles** — write or decode Merror Script challenges
-- 🤯 **Brain training** — reading reversed code rewires how you parse syntax
-- 😄 **Just for fun** — because why not?
+### because why not?
 
 ---
 
