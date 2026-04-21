@@ -5,18 +5,28 @@ import os
 
 sys.path.insert(0, os.path.dirname(__file__))
 from merror.compiler.scanner import Scanner
+from merror.compiler.parser import Parser
+from merror.compiler.semantic import SemanticAnalyzer
 
 
 def run(source: str):
     """
-    Scan a Merror source string and return (tokens, error).
-    Returns (list of tokens, None) on success.
-    Returns (None, error message) on failure.
+    Full pipeline: source → tokens → AST → semantic check
+    Returns (result, error)
     """
     try:
         scanner = Scanner(source)
-        tokens  = scanner.tokenize()
-        return tokens, None
+        tokens = scanner.tokenize()
+
+        parser = Parser(tokens)
+        ast = parser.parse()
+        # this one gets us the ast in the terminal
+        semantic = SemanticAnalyzer()
+        semantic.analyze(ast)
+
+        return ast, None
+
+
     except SyntaxError as e:
         return None, str(e)
     except Exception as e:
@@ -29,13 +39,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     source = " ".join(sys.argv[1:])
-    tokens, error = run(source)
+    result, error = run(source)
 
     if error:
         print(f"Error: {error}")
     else:
-        print(f"── Input ──")
-        print(source)
-        print(f"\n── Tokens ──\n")
-        for tok in tokens:
-            print(tok)
+        print(result)

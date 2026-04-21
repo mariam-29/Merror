@@ -1,4 +1,5 @@
-
+# shell.py
+# Interactive Merror Script shell
 # Run with: python shell.py
 
 import sys
@@ -9,33 +10,26 @@ from merror.runner import run
 
 
 def main():
-    print("Merror Script Shell  |  type 'exit' to quit")
-    print("─" * 45)
+    if len(sys.argv) < 2:
+        print("Usage: python shell.py <file.mr>")
+        sys.exit(1)
 
-    while True:
-        try:
-            text = input("Merror >> ")
-        except KeyboardInterrupt:
-            print("\nUse 'exit' to quit.")
-            continue
-        except EOFError:
-            print("\nGoodbye.")
-            break
+    filepath = sys.argv[1]
 
-        if text.strip() == "":
-            continue
+    if not os.path.exists(filepath):
+        print(f"Error: file '{filepath}' not found")
+        sys.exit(1)
 
-        if text.strip() == "exit":
-            print("Goodbye.")
-            break
+    with open(filepath, "r", encoding="utf-8") as f:
+        source = f.read()
 
-        tokens, error = run(text)
+    ast, error = run(source)
 
-        if error:
-            print(f"Error: {error}")
-        else:
-            for tok in tokens:
-                print(tok)
+    if error:
+        print(f"Error: {error}")
+    else:
+
+        print(ast)
 
 
 if __name__ == "__main__":
