@@ -58,11 +58,13 @@ class Scanner:
 
             elif ch == "#":
                 self._scan_comment()
+                continue
             elif ch == "\n":
                 self.line = self.line + 1
                 self.pos += 1
+                self.col = 1
             elif ch =="\t":
-                self.col =+4
+                self.col += 4
                 self.pos += 1
 
             elif ch in ('"', "'"):
@@ -116,7 +118,7 @@ class Scanner:
         # so it matches both integers and floats
         value = match.group()
         self.pos += len(value)
-        self.col += len(value)
+        self.col += len(value)#.5
         self._add(TokenType.NUMBER, value, line, col)
         #advance and emit the number token and just move to the next pos
 
@@ -173,10 +175,8 @@ class Scanner:
     # ── Comment ──────────────────────────────────────
 
     def _scan_comment(self):
-        line, col = self.line, self.col
         match = re.match(r'#[^\n]*', self.source[self.pos:])
-        ## followed by anything that's not a newline — so it grabs the whole comment line in one shot
         value = match.group()
         self.pos += len(value)
         self.col += len(value)
-        self._add(TokenType.COMMENT, value, line, col)
+
