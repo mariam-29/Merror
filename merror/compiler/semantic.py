@@ -26,8 +26,7 @@ class SemanticAnalyzer:
     def visit_Program(self, node):
         for stmt in node.statements:
             self.analyze(stmt)
-        self.symbol_table.debug_print()
-        # بيجيب كل حاجة ويطبع السيبمول تيبل
+
 
     # ── Block ───────────────────────────
 
@@ -58,7 +57,7 @@ class SemanticAnalyzer:
         if value is None:
             raise Exception(f"Undefined variable '{node.name}'")
 
-        print(f"[Semantic] Using variable: {node.name}")
+        # print(f"[Semantic] Using variable: {node.name}")
 
 
         return value
@@ -76,16 +75,18 @@ class SemanticAnalyzer:
     def visit_BinaryOp(self, node):
         left = self.analyze(node.left)
         right = self.analyze(node.right)
-        # بيرجع نوعهم
-        # هات الرايت والليفت
 
-        print(f"[Semantic] BinaryOp: {left} {node.operator} {right}")
-        # اطبعهم
+        # Only reject when BOTH sides are known concrete types that actually differ
+        # (unknown means a function return — we can't know its type yet, so skip)
+        arithmetic_ops = {"+", "-", "*", "/", "//", "%", "**"}
+        known = {"number", "string", "bool"}
+        if (node.operator in arithmetic_ops
+                and left in known and right in known
+                and left != right):
+            raise Exception(
+                f"Type mismatch: cannot apply '{node.operator}' to {left} and {right}"
+            )
 
-        if left != right:
-            raise Exception("Type mismatch in binary operation")
-
-#لو النوع مش متوفق اضرب ايرور
         return left
 
     def visit_UnaryOp(self, node):
@@ -93,7 +94,7 @@ class SemanticAnalyzer:
         operand_type = self.analyze(node.operand)
 
         # حل الرقم اللي عاملينه يوناري
-        print(f"[Semantic] UnaryOp: {node.operator}{operand_type}")
+        # print(f"[Semantic] UnaryOp: {node.operator}{operand_type}")
 
         # ── handle numeric unary operators ──
         if node.operator in ("-", "+"):
@@ -142,9 +143,38 @@ class SemanticAnalyzer:
             self.analyze(node.value)
             # لو في ليها قيمة اصلا هاتها
 
+    def visit_FunctionDef(self, node):
+        # register function in symbol table
+        self.symbol_table.define_function(node.name, len(node.params))
+        self.symbol_table.enter_scope()
+        for param in node.params:
+            self.symbol_table.define(param, "unknown")
+        for stmt in node.body.statements:
+            self.analyze(stmt)
+        self.symbol_table.exit_scope()
+
+    def visit_ForStatement(self, node):
+        self.analyze(node.iterable)
+        self.symbol_table.enter_scope()
+        self.symbol_table.define(node.var, "unknown")
+        for stmt in node.body.statements:
+            self.analyze(stmt)
+        self.symbol_table.exit_scope()
+
+    def visit_BreakStatement(self, node):
+        pass
+
+    def visit_ContinueStatement(self, node):
+        pass
+
+    def visit_Boolean(self, node):
+        return "bool"
+
+    def visit_NoneVal(self, node):
+        return "none"
+
     def visit_ExpressionStatement(self, node):
         self.analyze(node.expression)
-        # شوفلنا الاكسبريشن ايه
 
     def visit_FunctionCall(self, node):
         # 1. check function exists
@@ -156,7 +186,7 @@ class SemanticAnalyzer:
         for arg in node.args:
             arg_types.append(self.analyze(arg))
 
-        print(f"[Semantic] Function call: {node.name}({arg_types})")
+        # print(f"[Semantic] Function call: {node.name}({arg_types})")
 
         # 3. return type (temporary)
         return "unknown"
@@ -168,7 +198,7 @@ class SemanticAnalyzer:
         # مثلا x= 2+3
         # هيحلل الرقمين ويجمعهم ويخزنهم في المتغير
 
-        print(f"[Semantic] Defining variable: {node.name}")
+        # print(f"[Semantic] Defining variable: {node.name}")
 
         self.symbol_table.define(node.name, value)
 

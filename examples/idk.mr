@@ -1,3 +1,5 @@
+# full_test.mr — exercises all Merror constructs
+
 # hello.mr — basic Merror demo
 
 x = "iam mariam";
