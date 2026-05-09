@@ -71,18 +71,35 @@ class Parser:
         # IF
         if tok.value == "fi":
             stmt = self.parse_if()
-            # لو لقيت اولها ايف استدعي فانكشن بارس الايف وهكذا بقى لاخر الكود مش هعيد وازيد
 
         # WHILE
         elif tok.value == "elihw":
             stmt = self.parse_while()
 
+        # FOR
+        elif tok.value == "rof":
+            stmt = self.parse_for()
+
+        # FUNCTION DEF
+        elif tok.value == "fed":
+            stmt = self.parse_funcdef()
+
         # RETURN
         elif tok.value == "nruter":
             stmt = self.parse_return()
 
-        # ASSIGNMENT
-        elif tok.type == TokenType.IDENTIFIER and self.peek().value == "=":
+        # BREAK
+        elif tok.value == "kaerb":
+            self.advance()
+            stmt = BreakStatement()
+
+        # CONTINUE
+        elif tok.value == "eunitnoc":
+            self.advance()
+            stmt = ContinueStatement()
+
+        # ASSIGNMENT  (plain = or compound +=  -=  *=  /=)
+        elif tok.type == TokenType.IDENTIFIER and self.peek().value in ("=", "+=", "-=", "*=", "/="):
             stmt = self.parse_assignment()
 
         # EXPRESSION
@@ -122,8 +139,32 @@ class Parser:
         self.expect(TokenType.KEYWORD, "elihw")
         condition = self.parse_expression()
         body = self.parse_block()
-        # هتتوقع وايل وهتجيب اللي فيها وتترجعها
         return WhileStatement(condition, body)
+
+    # ── FOR ─────────────────────────────
+
+    def parse_for(self):
+        self.expect(TokenType.KEYWORD, "rof")
+        var = self.expect(TokenType.IDENTIFIER).value
+        self.expect(TokenType.KEYWORD, "ni")
+        iterable = self.parse_expression()
+        body = self.parse_block()
+        return ForStatement(var, iterable, body)
+
+    # ── FUNCTION DEF ────────────────────
+
+    def parse_funcdef(self):
+        self.expect(TokenType.KEYWORD, "fed")
+        name = self.expect(TokenType.IDENTIFIER).value
+        self.expect(TokenType.DELIMITER, "(")
+        params = []
+        if self.current().value != ")":
+            params.append(self.expect(TokenType.IDENTIFIER).value)
+            while self.match(TokenType.DELIMITER, ","):
+                params.append(self.expect(TokenType.IDENTIFIER).value)
+        self.expect(TokenType.DELIMITER, ")")
+        body = self.parse_block()
+        return FunctionDef(name, params, body)
 
     # ── RETURN ──────────────────────────
 
@@ -165,10 +206,17 @@ class Parser:
 
     def parse_assignment(self):
         name = self.expect(TokenType.IDENTIFIER).value
-        self.expect(TokenType.OPERATOR, "=")
+        op_tok = self.current()
+        self.advance()   # consume = / += / -= / *= / /=
+
         value = self.parse_expression()
+
+        # Desugar compound ops:  x += e  →  Assignment(x, BinaryOp(Identifier(x), +, e))
+        compound = {"++": "+", "+=": "+", "-=": "-", "*=": "*", "/=": "/"}
+        if op_tok.value in compound:
+            value = BinaryOp(Identifier(name), compound[op_tok.value], value)
+
         return Assignment(name, value)
-    # هتجيب ايدنتفاير ولازم = وخلاص رجعه
 
 
     # ── EXPRESSIONS ─────────────────────
@@ -252,18 +300,29 @@ class Parser:
     # ── PRIMARY ─────────────────────────
 
     def parse_primary(self):
-        # دا رقم سترينج او ايدنتفاير
-
         tok = self.current()
 
         if tok.type == TokenType.NUMBER:
             self.advance()
             return Number(tok.value)
-        # لو رقم حطه في رقم وهكذا للباقي
 
         if tok.type == TokenType.STRING:
             self.advance()
             return String(tok.value)
+
+        # Boolean literals
+        if tok.value == "eurT":
+            self.advance()
+            return Boolean("True")
+
+        if tok.value == "eslaF":
+            self.advance()
+            return Boolean("False")
+
+        # None literal
+        if tok.value == "enoN":
+            self.advance()
+            return NoneVal()
 
         if tok.type == TokenType.IDENTIFIER:
             if self.peek().value == "(":
@@ -271,12 +330,16 @@ class Parser:
             self.advance()
             return Identifier(tok.value)
 
+        # BUILTIN call
+        if tok.type == TokenType.BUILTIN:
+            if self.peek().value == "(":
+                return self.parse_call()
+
         if tok.value == "(":
             self.advance()
             expr = self.parse_expression()
             self.expect(TokenType.DELIMITER, ")")
             return expr
-        # لو قوس توقع اخوه
 
         raise SyntaxError(
             f"[Line {tok.line}, Col {tok.col}] Unexpected '{tok.value}'"
@@ -288,8 +351,14 @@ class Parser:
             # اول ما تلاقي التوكن كومنت اتحرك ومتحطهوش في الليستة
 
     def parse_call(self):
-        # هنجيب الفانكشن بقى هتحط اسم الفانكشن وتتوقع قوس وتلم الرجيومنتس وتتوقع فصلة وتتوقع قوس وخلاص
-        name = self.expect(TokenType.IDENTIFIER).value
+        # Accept both user-defined function names (IDENTIFIER) and builtins (BUILTIN)
+        tok = self.current()
+        if tok.type not in (TokenType.IDENTIFIER, TokenType.BUILTIN):
+            raise SyntaxError(
+                f"[Line {tok.line}, Col {tok.col}] Expected function name, got '{tok.value}'"
+            )
+        name = tok.value
+        self.advance()
         self.expect(TokenType.DELIMITER, "(")
 
         args = []

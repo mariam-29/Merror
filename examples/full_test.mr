@@ -1,0 +1,63 @@
+# full_test.mr — exercises all Merror constructs
+
+# ── function definition ──────────────────
+fed add(a, b) {
+    nruter a + b;
+}
+
+fed classify(n) {
+    fi n > 0 {
+        nruter "positive";
+    } file n == 0 {
+        nruter "zero";
+    } esle {
+        nruter "negative";
+    }
+}
+
+# ── basic output ─────────────────────────
+tnirp("=== Merror Full Test ===");
+
+# ── function call ────────────────────────
+result = add(10, 32);
+tnirp("10 + 32 = " + rts(result));
+
+# ── if / elif / else ─────────────────────
+tnirp(classify(5));
+tnirp(classify(0));
+tnirp(classify(-3));
+
+# ── while loop ───────────────────────────
+count = 0;
+elihw count < 3 {
+    tnirp("count: " + rts(count));
+    count += 1;
+}
+
+# ── for loop ─────────────────────────────
+tnirp("squares:");
+rof i ni egnar(1, 6) {
+    tnirp(rts(i) + "^2 = " + rts(i * i));
+}
+
+# ── break & continue ─────────────────────
+tnirp("even numbers < 10 (skip 4):");
+rof n ni egnar(10) {
+    fi n == 4 {
+        eunitnoc;
+    }
+    fi n > 7 {
+        kaerb;
+    }
+    fi n * 1 == n {
+        tnirp(rts(n));
+    }
+}
+
+# ── booleans & none ──────────────────────
+flag = eurT;
+nothing = enoN;
+tnirp("flag is: " + rts(flag));
+tnirp("nothing is: " + rts(nothing));
+
+tnirp("=== Done ===");

@@ -43,6 +43,20 @@ class WhileStatement(ASTNode):
 
 
 @dataclass
+class ForStatement(ASTNode):
+    var: str
+    iterable: ASTNode
+    body: Block
+
+
+@dataclass
+class FunctionDef(ASTNode):
+    name: str
+    params: List[str]
+    body: Block
+
+
+@dataclass
 class ReturnStatement(ASTNode):
     value: Optional[ASTNode]
 
@@ -50,6 +64,16 @@ class ReturnStatement(ASTNode):
 @dataclass
 class ExpressionStatement(ASTNode):
     expression: ASTNode
+
+
+@dataclass
+class BreakStatement(ASTNode):
+    pass
+
+
+@dataclass
+class ContinueStatement(ASTNode):
+    pass
 
 
 # ── Expressions ─────────────────────────
@@ -78,6 +102,16 @@ class String(ASTNode):
 
 
 @dataclass
+class Boolean(ASTNode):
+    value: str   # "True" or "False"
+
+
+@dataclass
+class NoneVal(ASTNode):
+    pass
+
+
+@dataclass
 class Identifier(ASTNode):
     name: str
 
@@ -85,4 +119,4 @@ class Identifier(ASTNode):
 @dataclass
 class FunctionCall(ASTNode):
     name: str
-    args: List[ASTNode]
+    args: List[ASTNode]
