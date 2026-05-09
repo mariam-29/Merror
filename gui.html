@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Merror IDE</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0d0d14;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Top Bar ── */
+#topbar{display:flex;align-items:center;padding:0 20px;height:54px;background:rgba(255,255,255,.04);border-bottom:1px solid rgba(255,255,255,.08);gap:14px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-dot{width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#ff4757,#ff6b81);box-shadow:0 0 12px #ff475780}
+.logo-text{font-size:18px;font-weight:700;background:linear-gradient(90deg,#ff4757,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-tag{font-size:11px;color:#64748b;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 7px;font-family:'JetBrains Mono',monospace}
+#topbar .spacer{flex:1}
+#status{font-size:12px;color:#64748b;font-family:'JetBrains Mono',monospace;transition:color .3s}
+#status.ok{color:#4ade80}
+#status.err{color:#f87171}
+#status.running{color:#facc15}
+#run-btn{display:flex;align-items:center;gap:7px;background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;padding:9px 22px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif}
+#run-btn:hover{transform:translateY(-1px);box-shadow:0 6px 24px #7c3aed60}
+#run-btn:active{transform:translateY(0)}
+#run-btn svg{width:16px;height:16px}
+
+/* ── Main layout ── */
+#main{display:flex;flex:1;overflow:hidden;gap:0}
+
+/* ── Editor Panel ── */
+#editor-wrap{display:flex;flex-direction:column;width:50%;border-right:1px solid rgba(255,255,255,.07)}
+.panel-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(255,255,255,.03);border-bottom:1px solid rgba(255,255,255,.07);font-size:12px;font-weight:500;color:#94a3b8;flex-shrink:0}
+.panel-header .dot{width:8px;height:8px;border-radius:50%}
+.CodeMirror{height:100%;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.7}
+.CodeMirror-scroll{height:100%}
+#editor-wrap .cm-wrap{flex:1;overflow:hidden}
+
+/* ── Output Panel ── */
+#output-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden}
+
+/* ── Tabs ── */
+#tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);flex-shrink:0;overflow-x:auto}
+.tab{display:flex;align-items:center;gap:6px;padding:10px 18px;font-size:12px;font-weight:500;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.tab:hover{color:#cbd5e1;background:rgba(255,255,255,.04)}
+.tab.active{color:#e2e8f0;border-bottom-color:var(--tc)}
+.tab .badge{width:7px;height:7px;border-radius:50%;background:var(--tc)}
+
+/* tab colours */
+.tab[data-tab="scanner"]{--tc:#38bdf8}
+.tab[data-tab="parser"]{--tc:#a78bfa}
+.tab[data-tab="semantic"]{--tc:#4ade80}
+.tab[data-tab="transpiler"]{--tc:#facc15}
+.tab[data-tab="execution"]{--tc:#fb923c}
+
+/* ── Panels ── */
+#panels{flex:1;overflow:hidden;position:relative}
+.panel{display:none;height:100%;overflow-y:auto;padding:16px;flex-direction:column;gap:12px}
+.panel.active{display:flex}
+
+/* error banner */
+.phase-error{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:14px 16px;color:#fca5a5;font-family:'JetBrains Mono',monospace;font-size:13px;white-space:pre-wrap}
+.phase-ok{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#4ade80}
+
+/* Scanner table */
+#scanner-table-wrap{overflow-x:auto;border-radius:8px;border:1px solid rgba(255,255,255,.08)}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:'JetBrains Mono',monospace}
+th{background:rgba(255,255,255,.06);color:#94a3b8;padding:8px 14px;text-align:left;font-weight:600;white-space:nowrap}
+td{padding:7px 14px;border-top:1px solid rgba(255,255,255,.05);color:#e2e8f0;white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.03)}
+.tt-KEYWORD{color:#a78bfa}
+.tt-BUILTIN{color:#38bdf8}
+.tt-IDENTIFIER{color:#e2e8f0}
+.tt-NUMBER{color:#fb923c}
+.tt-STRING{color:#4ade80}
+.tt-OPERATOR{color:#f472b6}
+.tt-DELIMITER{color:#facc15}
+.tt-COMMENT{color:#64748b}
+
+/* AST tree */
+#ast-tree{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.8;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:16px;overflow-x:auto;white-space:pre;color:#e2e8f0}
+
+/* Semantic */
+.sym-section{margin-bottom:12px}
+.sym-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.sym-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.sym-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center}
+.sym-name{font-family:'JetBrains Mono',monospace;font-size:13px;color:#e2e8f0}
+.sym-type{font-size:11px;font-weight:600;border-radius:4px;padding:2px 8px}
+.type-number{background:rgba(251,146,60,.15);color:#fb923c}
+.type-string{background:rgba(74,222,128,.15);color:#4ade80}
+.type-bool{background:rgba(167,139,250,.15);color:#a78bfa}
+.type-unknown{background:rgba(100,116,139,.15);color:#94a3b8}
+.type-none{background:rgba(148,163,184,.1);color:#64748b}
+
+/* Code view (transpiler) */
+.code-view{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:16px;overflow-x:auto;white-space:pre;color:#e2e8f0;flex:1}
+
+/* Execution */
+.exec-section{margin-bottom:12px}
+.exec-label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.exec-out{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.7;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:14px;white-space:pre-wrap;min-height:60px;color:#e2e8f0}
+.exec-out.stderr{color:#f87171;border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.05)}
+.exit-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 12px;border-radius:6px}
+.exit-badge.good{background:rgba(74,222,128,.12);color:#4ade80}
+.exit-badge.bad{background:rgba(248,113,113,.12);color:#f87171}
+
+/* Placeholder */
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#334155;gap:12px;user-select:none}
+.placeholder svg{width:48px;height:48px;opacity:.3}
+.placeholder p{font-size:14px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <span class="logo-text">Merror</span>
+    <span class="logo-tag">IDE</span>
+  </div>
+  <span class="spacer"></span>
+  <span id="status">ready</span>
+  <button id="run-btn" onclick="runCode()">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    Run
+  </button>
+</div>
+
+<!-- ── Main ── -->
+<div id="main">
+
+  <!-- Editor -->
+  <div id="editor-wrap">
+    <div class="panel-header">
+      <div class="dot" style="background:#a78bfa"></div>
+      <span>editor.mr</span>
+    </div>
+    <textarea id="editor"># hello.mr — basic Merror demo
+
+x = "iam mariam";
+z = 7;
+name = "Merror";
+
+fi (z > 5) {
+    x = 3 + 5;
+    tnirp(rts(x));
+}
+
+tnirp("Hello from " + name);
+</textarea>
+  </div>
+
+  <!-- Output -->
+  <div id="output-wrap">
+    <div id="tabs">
+      <div class="tab active" data-tab="scanner"   onclick="switchTab('scanner')">  <span class="badge"></span>Scanner</div>
+      <div class="tab"        data-tab="parser"    onclick="switchTab('parser')">   <span class="badge"></span>Parser</div>
+      <div class="tab"        data-tab="semantic"  onclick="switchTab('semantic')"> <span class="badge"></span>Semantic</div>
+      <div class="tab"        data-tab="transpiler"onclick="switchTab('transpiler')"><span class="badge"></span>Transpiler</div>
+      <div class="tab"        data-tab="execution" onclick="switchTab('execution')"><span class="badge"></span>Output</div>
+    </div>
+    <div id="panels">
+
+      <!-- Scanner -->
+      <div class="panel active" id="panel-scanner">
+        <div class="placeholder" id="ph-scanner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <p>Run your code to see tokens</p>
+        </div>
+        <div id="scanner-content" style="display:none;flex-direction:column;gap:10px">
+          <div id="scanner-status"></div>
+          <div id="scanner-table-wrap">
+            <table><thead><tr><th>#</th><th>Type</th><th>Value</th><th>Line</th><th>Col</th></tr></thead>
+            <tbody id="scanner-body"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parser -->
+      <div class="panel" id="panel-parser">
+        <div class="placeholder" id="ph-parser">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h12M3 18h8"/></svg>
+          <p>Run your code to see the AST</p>
+        </div>
+        <div id="parser-content" style="display:none;flex-direction:column;gap:10px">
+          <div id="parser-status"></div>
+          <div id="ast-tree"></div>
+        </div>
+      </div>
+
+      <!-- Semantic -->
+      <div class="panel" id="panel-semantic">
+        <div class="placeholder" id="ph-semantic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <p>Run your code to see semantic analysis</p>
+        </div>
+        <div id="semantic-content" style="display:none;flex-direction:column;gap:10px">
+          <div id="semantic-status"></div>
+          <div class="sym-section">
+            <div class="sym-title">Variables</div>
+            <div class="sym-grid" id="sym-vars"></div>
+          </div>
+          <div class="sym-section">
+            <div class="sym-title">Functions</div>
+            <div class="sym-grid" id="sym-fns"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transpiler -->
+      <div class="panel" id="panel-transpiler">
+        <div class="placeholder" id="ph-transpiler">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          <p>Run your code to see generated Python</p>
+        </div>
+        <div id="transpiler-content" style="display:none;flex-direction:column;gap:10px">
+          <div id="transpiler-status"></div>
+          <pre class="code-view" id="python-code"></pre>
+        </div>
+      </div>
+
+      <!-- Execution -->
+      <div class="panel" id="panel-execution">
+        <div class="placeholder" id="ph-execution">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <p>Run your code to see the output</p>
+        </div>
+        <div id="execution-content" style="display:none;flex-direction:column;gap:10px">
+          <div id="exec-exit"></div>
+          <div class="exec-section">
+            <div class="exec-label">stdout</div>
+            <div class="exec-out" id="exec-stdout"></div>
+          </div>
+          <div class="exec-section" id="exec-stderr-wrap">
+            <div class="exec-label">stderr</div>
+            <div class="exec-out stderr" id="exec-stderr"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panels -->
+  </div><!-- /output-wrap -->
+</div><!-- /main -->
+
+<script>
+// ── CodeMirror setup ──────────────────────────────────────────────
+
+// Define a simple Merror syntax mode
+CodeMirror.defineMode("merror", function() {
+  const keywords = new Set(["fi","esle","file","rof","elihw","nruter","fed","ni","ton","dna","ro","kaerb","eunitnoc","eurT","eslaF","enoN","ssap"]);
+  const builtins = new Set(["tnirp","tupni","tni","taolf","rts","loob","nel","egnar","tsil","epyt"]);
+  return {
+    token: function(stream) {
+      if (stream.eatSpace()) return null;
+      if (stream.match(/^#[^\n]*/)) return "comment";
+      if (stream.match(/^"([^"\\]|\\.)*"/)) return "string";
+      if (stream.match(/^'([^'\\]|\\.)*'/)) return "string";
+      if (stream.match(/^\d+(\.\d+)?/)) return "number";
+      let word = stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*/);
+      if (word) {
+        if (keywords.has(word[0])) return "keyword";
+        if (builtins.has(word[0])) return "builtin";
+        return "variable";
+      }
+      if (stream.match(/^(==|!=|<=|>=|\*\*|\/\/|->|\+=|-=|\*=|\/=)/)) return "operator";
+      if (stream.match(/^[+\-*/%=<>!&|^~]/)) return "operator";
+      stream.next(); return null;
+    }
+  };
+});
+
+const editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
+  mode: "merror",
+  theme: "dracula",
+  lineNumbers: true,
+  autoCloseBrackets: true,
+  indentUnit: 4,
+  tabSize: 4,
+  indentWithTabs: false,
+  lineWrapping: false,
+  extraKeys: {"Ctrl-Enter": runCode}
+});
+
+// Fix height after CodeMirror replaces textarea
+document.querySelector("#editor-wrap .cm-wrap") && null; // no-op
+editor.setSize("100%", "100%");
+// Actually, let the flex layout handle height
+document.querySelector(".CodeMirror").style.height = "calc(100vh - 54px - 37px)";
+
+// ── Tab switching ──────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add("active");
+  document.getElementById(`panel-${name}`).classList.add("active");
+}
+
+// ── AST pretty-printer ─────────────────────────────────────────────
+
+function prettyAST(node, indent=0) {
+  if (node === null || node === undefined) return "null";
+  if (typeof node !== "object") return JSON.stringify(node);
+  if (Array.isArray(node)) {
+    if (node.length === 0) return "[]";
+    const items = node.map(n => "  ".repeat(indent+1) + prettyAST(n, indent+1));
+    return "[\n" + items.join(",\n") + "\n" + "  ".repeat(indent) + "]";
+  }
+  const type = node._type || "Object";
+  const fields = Object.entries(node).filter(([k])=>k!=="__type"&&k!=="_type");
+  if (fields.length === 0) return type + "()";
+  const lines = fields.map(([k,v]) => "  ".repeat(indent+1) + k + ": " + prettyAST(v, indent+1));
+  return type + "(\n" + lines.join("\n") + "\n" + "  ".repeat(indent) + ")";
+}
+
+// ── Run ────────────────────────────────────────────────────────────
+
+async function runCode() {
+  const src = editor.getValue();
+  const status = document.getElementById("status");
+  const btn = document.getElementById("run-btn");
+
+  status.className = "running";
+  status.textContent = "running…";
+  btn.disabled = true;
+
+  // reset all panels to placeholder
+  ["scanner","parser","semantic","transpiler","execution"].forEach(p => {
+    document.getElementById(`ph-${p}`).style.display = "flex";
+    const c = document.getElementById(`${p}-content`);
+    if (c) c.style.display = "none";
+  });
+
+  let data;
+  try {
+    const res = await fetch("http://localhost:5000/run", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({source: src})
+    });
+    data = await res.json();
+  } catch(e) {
+    status.className = "err";
+    status.textContent = "server error";
+    btn.disabled = false;
+    alert("Cannot reach the Merror server at localhost:5000.\nMake sure gui_server.py is running.");
+    return;
+  }
+
+  btn.disabled = false;
+
+  // ── Scanner ──
+  fillScanner(data.scanner);
+  // ── Parser ──
+  fillParser(data.parser);
+  // ── Semantic ──
+  fillSemantic(data.semantic);
+  // ── Transpiler ──
+  fillTranspiler(data.transpiler);
+  // ── Execution ──
+  fillExecution(data.execution);
+
+  // Overall status
+  const allOk = data.execution.ok;
+  if (data.scanner.error) { status.className="err"; status.textContent="scanner error"; switchTab("scanner"); }
+  else if (data.parser.error) { status.className="err"; status.textContent="parser error"; switchTab("parser"); }
+  else if (data.semantic.error) { status.className="err"; status.textContent="semantic error"; switchTab("semantic"); }
+  else if (data.transpiler.error) { status.className="err"; status.textContent="transpiler error"; switchTab("transpiler"); }
+  else if (!data.execution.ok) { status.className="err"; status.textContent=`exit ${data.execution.exit_code}`; switchTab("execution"); }
+  else { status.className="ok"; status.textContent="success ✓"; switchTab("execution"); }
+}
+
+// ── Fill helpers ───────────────────────────────────────────────────
+
+function showContent(phase) {
+  document.getElementById(`ph-${phase}`).style.display = "none";
+  const c = document.getElementById(`${phase}-content`);
+  c.style.display = "flex";
+  c.style.flexDirection = "column";
+}
+
+function fillScanner(s) {
+  showContent("scanner");
+  const statusEl = document.getElementById("scanner-status");
+  if (s.error) {
+    statusEl.innerHTML = `<div class="phase-error">✗ ${esc(s.error)}</div>`;
+    return;
+  }
+  statusEl.innerHTML = `<span class="phase-ok">✓ ${s.tokens.length} tokens</span>`;
+  const tbody = document.getElementById("scanner-body");
+  tbody.innerHTML = s.tokens.map((t,i)=>
+    `<tr><td style="color:#64748b">${i+1}</td><td class="tt-${t.type}">${t.type}</td><td>${esc(t.value)}</td><td>${t.line}</td><td>${t.col}</td></tr>`
+  ).join("");
+  document.getElementById("scanner-table-wrap").style.display = "block";
+}
+
+function fillParser(p) {
+  showContent("parser");
+  const statusEl = document.getElementById("parser-status");
+  if (p.error) {
+    statusEl.innerHTML = `<div class="phase-error">✗ ${esc(p.error)}</div>`;
+    return;
+  }
+  statusEl.innerHTML = `<span class="phase-ok">✓ AST built</span>`;
+  document.getElementById("ast-tree").textContent = prettyAST(p.ast);
+}
+
+function fillSemantic(s) {
+  showContent("semantic");
+  const statusEl = document.getElementById("semantic-status");
+  if (s.error) {
+    statusEl.innerHTML = `<div class="phase-error">✗ ${esc(s.error)}</div>`;
+    document.getElementById("sym-vars").innerHTML = "";
+    document.getElementById("sym-fns").innerHTML = "";
+    return;
+  }
+  statusEl.innerHTML = `<span class="phase-ok">✓ No semantic errors</span>`;
+  const vars = s.symbols?.variables || [];
+  const fns  = s.symbols?.functions || [];
+  document.getElementById("sym-vars").innerHTML = vars.length
+    ? vars.map(v=>`<div class="sym-card"><span class="sym-name">${esc(v.name)}</span><span class="sym-type type-${v.type}">${esc(v.type)}</span></div>`).join("")
+    : `<span style="color:#475569;font-size:13px">No variables defined</span>`;
+  document.getElementById("sym-fns").innerHTML = fns.length
+    ? fns.map(f=>`<div class="sym-card"><span class="sym-name">${esc(f.name)}</span><span class="sym-type type-unknown">${f.params} param${f.params!==1?"s":""}</span></div>`).join("")
+    : `<span style="color:#475569;font-size:13px">No user functions defined</span>`;
+}
+
+function fillTranspiler(t) {
+  showContent("transpiler");
+  const statusEl = document.getElementById("transpiler-status");
+  if (t.error) {
+    statusEl.innerHTML = `<div class="phase-error">✗ ${esc(t.error)}</div>`;
+    return;
+  }
+  statusEl.innerHTML = `<span class="phase-ok">✓ Python generated</span>`;
+  document.getElementById("python-code").textContent = t.code || "";
+}
+
+function fillExecution(e) {
+  showContent("execution");
+  if (e.error) {
+    document.getElementById("exec-exit").innerHTML = `<div class="phase-error">✗ ${esc(e.error)}</div>`;
+    return;
+  }
+  const badge = e.exit_code === 0
+    ? `<span class="exit-badge good">✓ Exit 0</span>`
+    : `<span class="exit-badge bad">✗ Exit ${e.exit_code}</span>`;
+  document.getElementById("exec-exit").innerHTML = badge;
+  document.getElementById("exec-stdout").textContent = e.stdout || "(no output)";
+  const stderrWrap = document.getElementById("exec-stderr-wrap");
+  if (e.stderr && e.stderr.trim()) {
+    stderrWrap.style.display = "block";
+    document.getElementById("exec-stderr").textContent = e.stderr;
+  } else {
+    stderrWrap.style.display = "none";
+  }
+}
+
+function esc(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+</script>
+</body>
+</html>
