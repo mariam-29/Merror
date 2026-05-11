@@ -521,15 +521,15 @@ fed check(x, y) {
     }
     nruter eslaF;
 }
-#### Team Members
+
+```
+#### Team Members 
 
 - Mariam Mohamed — [mariam-29](https://github.com/mariam-29)
 - Yassin Khaled — [yasu023](https://github.com/yasu023)
 - Mostafa Khaled — [Mostafa-K-Fakhry](https://github.com/Mostafa-K-Fakhry)
 - Mostafa Hamdy — [MostafaHamdi8](https://github.com/MostafaHamdi8)
 - Mahmoud Salah
-
-```
 how to run the GUI
 #### activate venv first
 .venv\Scripts\activate
