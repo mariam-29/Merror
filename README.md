@@ -1,6 +1,13 @@
 # Merror Script — Grammar Reference
 
 > "Write it backwards. Run it forwards."
+### how to run the GUI
+#### activate venv first
+.venv\Scripts\activate
+
+#### start the IDE
+python gui_server.py
+#####  → browser opens automatically at http://localhost:5000
 
 
 ## Notation
@@ -530,10 +537,3 @@ fed check(x, y) {
 - Mostafa Khaled — [Mostafa-K-Fakhry](https://github.com/Mostafa-K-Fakhry)
 - Mostafa Hamdy — [MostafaHamdi8](https://github.com/MostafaHamdi8)
 - Mahmoud Salah
-how to run the GUI
-#### activate venv first
-.venv\Scripts\activate
-
-#### start the IDE
-python gui_server.py
-#####  → browser opens automatically at http://localhost:5000
